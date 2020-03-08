@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=0,viewport-fit=cover">
+		<title>首页</title>
+		<link rel="stylesheet" href="../style/weui.css" />
+		<link rel="stylesheet" href="../fonts/iconfont.css" />
+		<link rel="stylesheet" href="../style/style.css" />
+
+	</head>
+	<body ontouchstart>
+		<header class="pui-header">
+			<h1 class="pui-title">首页</h1>
+		</header>
+		<div id="refreshContainer" hidden="hidden"></div>
+		<div class="index-panel ui-wrap qd-cell justify" style="margin-top:30px;">
+			<div class="qd-flex-item">
+				<div class="txt">入库量</div>
+				<div class="qd-data" id="inboundCount" style="text-align:center;font-size: larger;">
+				</div>
+			</div>
+			<div class="qd-flex-item">
+				<div class="txt">出库量</div>
+				<div class="qd-data" id="outboundCount" style="text-align:center;font-size: larger;">
+				</div>
+			</div>
+		</div>
+		<div id="appMap"></div>
+		<script type="text/html" id="template">
+			<div class="ui-wrap" >
+				<div class="index-panel">
+					<div id="appMap">
+					</div>
+					<div class="index-card">
+						<div class="card-header justify">
+							<div class="dai-tit">待办事项</div>
+							<a href="javascript:;" class="dai-more" onclick="more()">更多</a>
+						</div>
+						<div class="card-body">
+							<%for(var i=0;i<data.length;i++){%>
+							<a href="javascript:;" class="weui-cell weui-cell_access" onclick="goToAudit(
+				'<%=data[i].id%>','<%=data[i].orderNo%>','<%=data[i].holderName%>','<%=data[i].holderOrgName%>',
+				'<%=data[i].materialTypeCode%>','<%=data[i].materialTypeName%>','<%=data[i].driverName%>',
+				'<%=data[i].driverCardTypeName%>','<%=data[i].driverCardId%>','<%=data[i].license%>',
+				'<%=data[i].status%>','<%=data[i].warehouseName%>','<%=data[i].reason%>',
+				'<%=data[i].applyUserName%>','<%=data[i].applyTime%>')">
+								<div class="weui-cell__bd">
+									<span class="qk-status"><%=data[i].status%></span>
+									<span class="card-info">单号:<%=data[i].orderNo%></span>
+									<p class="time">申请时间:<%=data[i].applyTime%></p>
+								</div><div class="weui-cell__ft"></div>
+							</a>
+							<%}%>
+						</div>
+					</div>
+				</div>
+			</div>
+		</script>
+		<script type="text/javascript" src="../js/plugins/jquery-2.1.1.min.js"></script>
+		<script type="text/javascript" src="../js/plugins/zepto.min.js"></script>
+		<script type="text/javascript" src="../js/mui/js/mui.js"></script>
+		<script type="text/javascript" src="../js/util.js"></script>
+		<script type="text/javascript" src="../js/plugins/template.js"></script>
+		<script type="text/javascript" src="../js/plugins/mainPage.js"></script>
+		<script type="text/javascript" src="../js/plugins/update.js"></script>
+		<script src="../js/flexible.js"></script>
+		<script src="../js/flexible.js"></script>
+		<script type="text/javascript" src="../js/control.js"></script>
+
+		<script type="text/javascript">
+			var aduitList;
+			var approveList;
+			var Page = {
+				process: null,
+				chek: false,
+				flag: false,
+				// 初始化
+				init: function() {
+					util.DEBUG = true
+					//util.clearLoginInfo();
+					util.clearDirectLogin();
+					this.reload();
+					// 初始化事件
+					this.initEvent();
+					// 关闭等待页
+					this.closeSplashScreen();
+				},
+				getIndex: function() {
+					var that = this;
+					var datas = new Object();
+					datas.pageIndex = 1;
+					datas.pageSize = 4;
+					datas.criteria = {};
+					util.pullRefresh({
+						source: '/outdoor/auditList',
+						container: "#refreshContainer",
+						type: "POST",
+						params: datas,
+						domContainer: "#appMap",
+						resultHandler: function(data) {
+							// 							console.log(data)
+							// 						console.log(JSON.stringify(data))
+							return data;
+						},
+						down: {
+							callback: function() {
+								util.pullRefreshRequest("down");
+								that.getAppInbound();
+								that.getAppOutbound();
+							}
+							// console.log(that.pullRefreshOptions.url)
+						},
+						up: true,
+						template: "template"
+					});
+				},
+				getAppInbound: function() {
+					var warehouse = control.getWarehouseCache();
+					var warehouseLocation = control.getWarehouseLocationCache();
+					util.ajax({
+						url: "/dashboard/getAppInbound",
+						type: "GET",
+						data: {
+							warehouseCode: warehouse && warehouse.code || '',
+							warehouseLocationCode: warehouseLocation && warehouseLocation.code || ''
+						},
+						dataType: 'json',
+						success: function(data) {
+							$("#inboundCount").html(data.inboundCount || 0)
+						},
+						error: function() {
+							mui.toast("数据查询失败！")
+						}
+					});
+				},
+				getAppOutbound: function() {
+					var warehouse = control.getWarehouseCache();
+					var warehouseLocation = control.getWarehouseLocationCache();
+					util.ajax({
+						url: "/dashboard/getAppOutbound",
+						type: "GET",
+						data: {
+							warehouseCode: warehouse && warehouse.code || '',
+							warehouseLocationCode: warehouseLocation && warehouseLocation.code || ''
+						},
+						dataType: 'json',
+						success: function(data) {
+							$("#outboundCount").html(data.outboundCount || 0)
+						},
+						error: function() {
+							mui.toast("数据查询失败！")
+						}
+					});
+				},
+				// 重新加载时使用
+				reload: function() {
+					if (util.isLogin()) {
+						// 初始化 功能按钮 
+						this.initTabBar();
+						// this.setTime();
+						this.getIndex();
+						this.getAppInbound();
+						this.getAppOutbound();
+						if (!this.flag) {
+							this.flag = true;
+						} else {
+							//Page.backInit();
+						}
+						// 检测更新 
+						AppUpdate.upgrade();
+					} else {
+						// 打开登陆页面
+						util.directLogin();
+					}
+				},
+				pulldown: function() {
+					util.pullRefreshRequest("down");
+				},
+				setTime: function() {
+					if (this.process) {
+						clearInterval(this.process);
+						this.process = null;
+					}
+					this.process = setInterval(function() {
+						Page.backInit();
+					}, 300000);
+
+				},
+				// 初始化事件
+				initEvent: function() {
+					// 双击返回退出
+					util.appQuit();
+					// 设置状态栏颜色
+					plus.navigator.setStatusBarBackground('#45a1d4');
+					$(".mui-table-view-cell").on("tap", function() {
+						var $this = $(this),
+							id = $this.attr("data-id"),
+							url = $this.attr("data-url");
+						mui.openWindow({
+							id: id,
+							url: url
+						});
+					});
+				},
+				// 初始化页面功能按钮,会预加载功能页面
+				initTabBar: function() {
+					var tabs = [{
+						icon: {
+							normal: {
+								text: "\ue605",
+							},
+							active: {
+								text: "\ue605"
+							}
+						},
+						text: {
+							normal: {
+								text: "首页"
+							},
+							active: {
+								text: "首页"
+							}
+						},
+						page: {
+							url: "index.html",
+							title: "首页",
+							isMain: true
+						},
+					}, {
+						icon: {
+							normal: {
+								text: "\ue603",
+							},
+							active: {
+								text: "\ue603"
+							}
+						},
+						text: {
+							normal: {
+								text: "出门证"
+							},
+							active: {
+								text: "出门证"
+							}
+						},
+						page: {
+							url: "outdoor/list.html",
+							title: "出门证",
+							id: "outdoorList",
+							reload: true
+						}
+					}, {
+						icon: {
+							normal: {
+								text: "\ue626",
+							},
+							active: {
+								text: "\ue626"
+							}
+						},
+						text: {
+							normal: {
+								text: "入库"
+							},
+							active: {
+								text: "入库"
+							}
+						},
+						page: {
+							id: "putInStorage",
+							url: "putInStorage/index.html",
+							title: "入库",
+							reload: true
+						}
+					}, {
+						icon: {
+							normal: {
+								text: "\ue61c",
+							},
+							active: {
+								text: "\ue61c"
+							}
+						},
+						text: {
+							normal: {
+								text: "物资追溯"
+							},
+							active: {
+								text: "物资追溯"
+							}
+						},
+						page: {
+							id: "materialTraceability",
+							url: "materialTraceability/list.html",
+							title: "物资追溯",
+							reload: true
+						}
+					}, {
+						icon: {
+							normal: {
+								text: "\ue606",
+							},
+							active: {
+								text: "\ue606"
+							}
+						},
+						text: {
+							normal: {
+								text: "我的"
+							},
+							active: {
+								text: "我的"
+							}
+						},
+						page: {
+							id: "my",
+							url: "my/index.html",
+							title: "我的",
+							reload: true
+						}
+					}];
+					var view = plus.nativeObj.View.getViewById('tabBar');
+					// 初始化页面
+					MainPage.init({
+						tabs: tabs,
+						tabBar: view
+					});
+					MainPage.changeTab(0);
+				},
+				// 关闭等待页
+				closeSplashScreen: function() {
+					plus.navigator.closeSplashscreen();
+				},
+				backInit: function() {
+					util.pullRefreshRequest("down");
+				},
+			};
+
+			function more() {
+				mui.openWindow({
+					url: 'more.html',
+					id: 'more',
+					extras: {}
+				});
+			};
+
+			function goToAudit(outdoorId, orderNo, holderName, holderOrgName, materialTypeCode, materialTypeName, driverName,
+				driverCardTypeName,
+				driverCardId, license, status, warehouseName, reason, applyUserName, applyTime) {
+				if (status === '待结单') {
+					mui.openWindow({
+						url: "./outdoor/end.html",
+						id: "outdoorEnd",
+						extras: {
+							data: outdoorId
+						}
+					});
+					// mui.openWindow({
+					// 	// 添加if判断,根据不同状态跳转不同页面
+					// 	url: './outdoor/account.html',
+					// 	id: 'account',
+					// 	extras: {
+					// 		outdoorId: outdoorId,
+					// 		orderNo: orderNo,
+					// 		holderName: holderName,
+					// 		holderOrgName: holderOrgName,
+					// 		materialTypeCode: materialTypeCode,
+					// 		materialTypeName: materialTypeName,
+					// 		driverName: driverName,
+					// 		driverCardTypeName: driverCardTypeName,
+					// 		driverCardId: driverCardId,
+					// 		license: license,
+					// 		status: status,
+					// 		warehouseName: warehouseName,
+					// 		reason: reason,
+					// 		applyUserName: applyUserName,
+					// 		applyTime: applyTime
+					// 	}
+					// });
+				} else {
+					// mui.openWindow({
+					// 	// 添加if判断,根据不同状态跳转不同页面
+					// 	url: './outdoor/audit.html',
+					// 	id: 'audit',
+					// 	extras: {
+					// 		outdoorId: outdoorId,
+					// 		orderNo: orderNo,
+					// 		holderName: holderName,
+					// 		holderOrgName: holderOrgName,
+					// 		materialTypeCode: materialTypeCode,
+					// 		materialTypeName: materialTypeName,
+					// 		driverName: driverName,
+					// 		driverCardTypeName: driverCardTypeName,
+					// 		driverCardId: driverCardId,
+					// 		license: license,
+					// 		status: status,
+					// 		warehouseName: warehouseName,
+					// 		reason: reason,
+					// 		applyUserName: applyUserName,
+					// 		applyTime: applyTime
+					// 	}
+					// });
+					mui.openWindow({
+						url: './outdoor/approve.html',
+						id: "approve",
+						extras: {
+							data: outdoorId
+						}
+					})
+				}
+			};
+
+			mui.plusReady(function() {
+				Page.init();
+			});
+		</script>
+	</body>
+
+</html>

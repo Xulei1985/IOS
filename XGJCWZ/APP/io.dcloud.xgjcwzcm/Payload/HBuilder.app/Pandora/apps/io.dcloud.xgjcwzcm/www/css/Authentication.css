@@ -1,0 +1,10 @@
+.Division{width: 100%;height: 10px;background-color: #EAEAEA;margin-top: 44px;margin-bottom: 6px;}
+.name_box{width: 90%;margin-left: 5%;height: 35px;line-height: 35px;font-family: "微软雅黑";color: #242424;font-size: 1.6rem;}
+.name_box input{border: none;padding: none;font-size: 1.6rem;}
+.Division1{width: 100%;height: 10px;background-color: #EAEAEA;margin-top: -8px;}
+.photo_border{width: 150px;height: 190px;text-align: center;line-height: 80px;font-size: 6rem;color: #999999;margin-top: 10px;}
+.Notes {color: #666666;margin-left: 8px;font-size: 1.4rem;margin-bottom: 30px;}
+.set{background: #209cea;border-radius:3px;width: 88%;text-align: center;font-size: 1.6rem;color: white;height: 40px;display: block;border: none;position: fixed;bottom: 100px;margin-left: 6%;}
+.hr3{height:1px;border:none;border-top:1px dotted #999999;}
+.photo_border1{width: 150px;height: 190px;border: dotted 1px #999999;text-align: center;line-height: 80px;font-size: 6rem;color: #999999;margin-top: 10px;}
+.photo{width: 50px;height: 50px;border: dotted 1px #999999;text-align: center;line-height: 40px;font-size: 2rem;color: #999999;margin-top: 10px;}

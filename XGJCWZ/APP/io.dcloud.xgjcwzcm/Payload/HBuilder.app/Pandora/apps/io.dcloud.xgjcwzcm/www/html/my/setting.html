@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+		<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1,user-scalable=no">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black">
+		<!--标准mui.css-->
+		<link href="../../js/mui/css/mui.css" type="text/css" rel="stylesheet" />
+		<link rel="stylesheet" href="../../style/weui.css" />
+		<link rel="stylesheet" href="../../fonts/iconfont.css" />
+		<link rel="stylesheet" href="../../style/style.css" />
+		<script src="../../js/flexible.js"></script>
+	</head>
+	<body ontouchstart>
+		<header class="pui-header">
+			<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left" style="margin-top: 12px;"></a>
+			<h1 class="pui-title">关于APP</h1>
+		</header>
+		<div class="ui-wrap">
+			<div class="info-logo">
+				<img src="../../images/inlogo.png" alt="" />
+			</div>
+			<div class="weui-cells weui-info-cells">
+				<div class="weui-cell">
+					<div class="weui-cell__bd">
+						<div class="label-text">登录账号</div>
+					</div>
+					<div class="weui-cell__ft" id="userNo"></div>
+				</div>
+				<div class="weui-cell">
+					<div class="weui-cell__bd">
+						<div class="label-text">当前版本</div>
+					</div>
+					<div class="weui-cell__ft" id="version"></div>
+				</div>
+				<div class="weui-cell" onclick="Page.testUpdate()">
+					<div class="weui-cell__bd">
+						<div class="label-text">版本更新</div>
+					</div>
+					<div class="weui-cell__ft" id="newVersion"></div>
+				</div>
+			</div>
+			<div style="color: #8C8C8C; font-size: 12px;text-align: center;margin-top: 35%;">
+				徐工基础工程机械有限公司</br>
+				技术支持：江苏鼎业信息技术有限公司
+			</div>
+		</div>
+
+		<script type="text/javascript" src="../../js/plugins/jquery-2.1.1.min.js"></script>
+		<script type="text/javascript" src="../../js/plugins/zepto.min.js"></script>
+		<script type="text/javascript" src="../../js/plugins/template.js"></script>
+		<script type="text/javascript" src="../../js/mui/js/mui.js"></script>
+		<script type="text/javascript" src="../../js/util.js"></script>
+		<script type="text/javascript" src="../../js/plugins/update.js"></script>
+		<script type="text/javascript">
+			var flag = false;
+			var Page = {
+				init: function() {
+					plus.runtime.getProperty(plus.runtime.appid, function(inf) {
+						$("#version").html("V" + inf.version);
+						Page.getAppVersion(inf.version)
+					});
+
+					$("#userNo").html(util.getLoginInfo().name)
+
+				},
+				getAppVersion: function(version) {
+					util.ajax({
+						type: 'post',
+						url: '/app/getAppVersion',
+						data: {},
+						success: function(res) {
+							if (version != res.version) {
+								flag = true;
+								$("#new").show();
+								$("#newVersion").html("V" + res.version);
+							}
+
+						}
+					});
+				},
+
+				testUpdate: function() {
+					if (flag) {
+						AppUpdate.upgrade();
+					} else {
+						mui.toast("徐工基础物资出门系统 已是最新版本~");
+					}
+
+				}
+			}
+			mui.plusReady(function() {
+				Page.init();
+			});
+		</script>
+	</body>
+</html>

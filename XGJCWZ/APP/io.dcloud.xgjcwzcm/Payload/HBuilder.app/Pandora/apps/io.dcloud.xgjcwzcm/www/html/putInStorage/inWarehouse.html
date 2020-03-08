@@ -1,0 +1,373 @@
+<!doctype html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black">
+		<link href="../../js/mui/css/mui.css" type="text/css" rel="stylesheet" />
+		<link rel="stylesheet" type="text/css" href="../../js/mui/css/mui.picker.min.css" />
+		<link rel="stylesheet" href="../../style/weui.css" />
+		<link rel="stylesheet" href="../../fonts/iconfont.css" />
+		<link rel="stylesheet" href="../../style/style.css" />
+		<link rel="stylesheet" href="../../js/actionSelect/district-select.css" />
+		<script src="../../js/flexible.js"></script>
+		<style>
+			.old-barcode-list{
+				position: absolute;
+				z-index: 100;
+				top:20px;
+				left:10px;
+				width:80%;
+				display:none;
+			}
+			.mui-table-view:after{
+				height:0;
+			}
+			.mui-input-group:after{
+				height:0;
+			}
+		</style>
+	</head>
+
+	<body ontouchstart>
+		<header class="pui-header">
+			<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left" style="margin-top: 12px;"></a>
+			<h1 class="pui-title">扫码入库</h1>
+		</header>
+		<div class="ui-wrap" style="background-color: #fff;" id="app">
+			<form class="mui-input-group" style="width: 100%; border-bottom: 0;" id="outdoorForm" enctype="multipart/form-data">
+				<h4 style="padding-left:15px;padding-top:10px;">扫码添加物料[总数:<span style="color:red">{{total}}</span>/物料:<span style="color:red">{{form.materialList.length}}</span>]
+					<br /> <br />仓库: {{warehouseName}}
+					<br /><br />库位:
+					<select v-model="form.warehouseLocationCode" style="width: 60%;margin-top: 0x;font-size: 13pt;">
+						<option v-for="(item,index) in warehouseLocationOptions" :value="item.code" :key="item.code">{{item.code + '-' +item.name}}</option>
+					</select>
+					<input type="hidden" id="codeScan" />
+				</h4>
+				<ul class="mui-table-view">
+					<li class="mui-table-view-cell mui-collapse" v-for="item in form.materialList" :key="item.materialCode">
+						<a style="display:block;width:100%;" class="mui-navigate-right" href="javascript:;">
+							<div style="width:100%;position: relative;">
+								{{item.materialCode}}
+								<p>{{item.materialName}}</p>
+								<button type="button" class="mui-btn mui-btn-danger mui-btn-outlined" style="position: absolute;right:20px;top:10px"
+								 @click="deleteMaterial(item)">删除</button>
+								<span class="mui-badge mui-badge-primary" style="position: absolute;right:80px;top:15px">{{calcMaterialCount(item)}}</span>
+							</div>
+						</a>
+						<div class="mui-collapse-content">
+							<ul class="mui-table-view">
+								<li class="mui-table-view-cell" v-for="barcode in item.barcodeList">
+									{{barcode.barcode}}
+									<button type="button" class="mui-btn mui-btn-danger mui-btn-outlined" @click="deleteBarcode(barcode,item)">删除</button>
+									<span class="mui-badge mui-badge-primary" style="position: absolute;right:80px;top:25px">{{barcode.materialCount}}</span>
+								</li>
+							</ul>
+						</div>
+					</li>
+				</ul>
+				<div class="button-qk-area">
+					<button class="weui-btn weui-btn_block weui-btn_default" type="button" @click="submitData()">入库</button>
+				</div>
+			</form>
+		</div>
+		<script type="text/javascript" src="../../js/plugins/jquery-2.1.1.min.js"></script>
+		<script type="text/javascript" src="../../js/plugins/zepto.min.js"></script>
+		<script type="text/javascript" src="../../js/mui/js/mui.js"></script>
+		<script type="text/javascript" src="../../js/util.js"></script>
+		<script type="text/javascript" src="../../js/mui/js/mui.picker.min.js"></script>
+		<script type="text/javascript" src="../../js/vue.js"></script>
+		<script type="text/javascript" src="../../js/control.js"></script>
+		<script type="text/javascript" src="../../js/actionSelect/district-select.js"></script>
+		<script type="text/javascript" src="../../js/codescan/jquery.code-scan.js"></script>
+		<script type="text/javascript">
+			var Page = {
+				vue: null,
+				initVue: function() {
+					var that = this;
+					this.vue = new Vue({
+						el: '#app',
+						data: function() {
+							return {
+								form: {
+									warehouseCode: null,
+									warehouseLocationCode: null,
+									materialList: []
+								},
+								warehouseName: null,
+								warehouseLocationName: null,
+								total: 0,
+								warehouseLocationOptions: []
+							}
+						},
+						created: function() {
+
+						},
+						methods: {
+							// 删除物料
+							deleteMaterial: function(item) {
+								var index = -1;
+								$.each(this.form.materialList, function(i, elem) {
+									if (elem.materialCode === item.materialCode) {
+										index = i;
+										return false;
+									}
+								});
+								if (index > -1) {
+									this.form.materialList.splice(index, 1)
+									this.calcTotal();
+								}
+							},
+							// 删除条码
+							deleteBarcode: function(barcode, item) {
+								var index = -1;
+								$.each(item.barcodeList, function(i, elem) {
+									if (elem.barcode === barcode.barcode) {
+										index = i;
+										return false;
+									}
+								});
+								if (index > -1) {
+									item.barcodeList.splice(index, 1);
+									if (!item.barcodeList.length) {
+										this.deleteMaterial(item);
+										this.calcTotal();
+									}
+								}
+							},
+							barcodeExist: function(barcode) {
+								var exist = false;
+								$.each(this.form.materialList, function(i, elem) {
+									if (elem.barcodeList && !exist) {
+										$.each(elem.barcodeList, function(m, el) {
+											if (el.barcode === barcode) {
+												exist = true;
+												return false;
+											}
+										})
+									}
+								});
+								return exist;
+							},
+							addBarcode: function(barcodeInfo) {
+								// exist barcode
+								if (!this.barcodeExist(barcodeInfo.barcode)) {
+									var material = null;
+									$.each(this.form.materialList, function() {
+										if (this.materialCode === barcodeInfo.materialCode) {
+											material = this;
+											return false;
+										}
+									})
+
+									if (!material) {
+										// new material
+										material = {
+											id: null,
+											materialCode: barcodeInfo.materialCode,
+											materialName: barcodeInfo.materialName,
+											materialCount: 0,
+											orderNo: this.form.orderNo,
+											sort: this.getMaxSort() + 1,
+											remark: null,
+											materialUnit: barcodeInfo.materialUnit,
+											barcodeList: []
+										};
+										this.form.materialList.push(material);
+
+									}
+									material.barcodeList.push({
+										id: null,
+										barcode: barcodeInfo.barcode,
+										materialCount: barcodeInfo.materialCount,
+										outdoorMaterialId: null,
+										materialUnit: barcodeInfo.materialUnit,
+										materialName: barcodeInfo.materialName
+									});
+									// calc total count
+									var total = 0;
+									$.each(material.barcodeList, function() {
+										total += this.materialCount
+									});
+									material.materialCount = total;
+									this.calcTotal();
+
+								} else {
+									mui.toast("条码已存在！");
+								}
+							},
+							calcTotal: function() {
+								var total = 0;
+								$.each(this.form.materialList, function() {
+									total += this.materialCount;
+								});
+								this.total = total;
+							},
+							calcMaterialCount(item) {
+								var total = 0;
+								$.each(item.barcodeList, function() {
+									total += this.materialCount;
+								})
+								return total;
+							},
+							submitData: function() {
+								var data = {
+									warehouseCode: this.form.warehouseCode,
+									warehouseLocationCode: this.form.warehouseLocationCode,
+									barcodeList: []
+								};
+								var that = this;
+								var errList = [];
+								if (!data.warehouseCode) {
+									errList.push("请到我的>基础消息中设置仓库！")
+								}
+								if (!data.warehouseLocationCode) {
+									errList.push("请选择库位！")
+								}
+
+
+								$.each(this.form.materialList, function() {
+									$.each(this.barcodeList, function() {
+										data.barcodeList.push({
+											barcode: this.barcode,
+											count: this.materialCount
+										});
+									});
+								})
+								if (!data.barcodeList.length) {
+									errList.push("请扫描物料条码！")
+								}
+								if (errList.length) {
+									mui.toast(errList.join("\n"));
+									return;
+								}
+								util.ajax({
+									url: "/barcode/inWarehouse",
+									data: JSON.stringify(data),
+									type: "POST",
+									contentType: 'application/json',
+									dataType: 'json',
+									success: function(data) {
+										if (data && data.success === false) {
+											mui.toast(data.message);
+										} else {
+											mui.toast("入库成功！")
+											//Page.back();
+											that.clearData();
+										}
+									},
+									error: function() {
+										mui.toast("入库失败！")
+									}
+								});
+							},
+							getMaxSort: function() {
+								var max = 0
+								this.form.materialList.forEach(elem => {
+									if (elem.sort > max) {
+										max = elem.sort
+									}
+								})
+								return max
+							},
+							clearData: function() {
+								this.form.materialList.splice(0, this.form.materialList.length)
+							}
+						}
+					});
+
+				},
+				init: function() {
+					this.initControl();
+					this.getData();
+				},
+				back: function() {
+					var wvB = plus.webview.currentWebview(); //获取当前窗口的WebviewObject对象，即B  
+					var wvA = wvB.opener(); //获取当前窗口的创建者，即A  
+					wvA.evalJS("Page.reload()"); //执行父窗口中的方法  A中的showAG方法  
+					wvB.close();
+				},
+				getData: function() {
+					var that = this;
+					// 仓库
+					// var warehouse = control.getWarehouseCache();
+					// var warehouseLocation = control.getWarehouseLocationCache();
+					// // if (!warehouse || !warehouseLocation) {
+					// // 	mui.alert("请到我的>基础消息中设置仓库和库位！", "设置提醒");
+					// // 	return;
+					// // }
+
+					// that.vue.warehouseName = warehouse.code + "-" + warehouse.name;
+					// that.vue.form.warehouseCode = that.vue.form.warehouseCode || warehouse.code;
+					// that.vue.form.warehouseLocationCode = that.vue.form.warehouseLocationCode || warehouseLocation.code;
+					// that.vue.warehouseLocationName = warehouseLocation.code + "-" + warehouseLocation.name;
+
+				},
+				initControl: function() {
+					var that = this;
+					$("#codeScan").codeScan({
+						onScan: function(code) {
+							code = code.trim();
+							if (!that.vue.barcodeExist(code)) {
+								that.addBarcode(code);
+							} else {
+								mui.toast("条码已存在！" + code)
+							}
+						}
+					});
+					var warehouse = control.getWarehouseCache();
+					if (!warehouse) {
+						mui.alert("请到我的>基础消息中设置仓库！", "设置提醒");
+						return;
+					}
+					that.vue.warehouseName = warehouse.code + "-" + warehouse.name;
+					that.vue.form.warehouseCode = that.vue.form.warehouseCode || warehouse.code;
+					var warehouseLocation = control.getWarehouseLocationCache();
+					if (warehouseLocation) {
+						that.vue.form.warehouseLocationCode = that.vue.form.warehouseLocationCode || warehouseLocation.code;
+						that.vue.warehouseLocationName = warehouseLocation.code + "-" + warehouseLocation.name;
+					}
+
+					control.getWarehouseLocation(warehouse).then(function(data) {
+						that.vue.warehouseLocationOptions = data;
+					}).catch(function(ex) {
+
+					})
+				},
+				addBarcode: function(code) {
+					var that = this;
+					control.getBarcodeIn(code, "").then(function(data) {
+						if (data.length) {
+							$.each(data, function() {
+								if (this.barcode == code) {
+									if (this.materialCount > 0 && this.warehouseCode == that.vue.form.warehouseCode &&
+										this.warehouseLocationCode == that.vue.form.warehouseLocationCode
+										&& this.warehouseStatus==1) {
+										mui.toast("此条码已在库！" + code);
+									} else {
+										mui.toast(code);
+										that.vue.addBarcode(this);
+									}
+
+									return false;
+								}
+							})
+						} else {
+							mui.toast("此条码不存在！")
+						}
+					}).catch(function(ex) {
+						mui.toast("获取条码失败！" + code);
+					});
+				}
+			};
+			Page.initVue();
+			mui.plusReady(function() {
+				Page.init();
+			});
+		</script>
+	</body>
+
+</html>
